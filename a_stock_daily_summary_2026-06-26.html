@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A股盘后总结 — 2026-06-26</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-section: #f8f9fb;
+    --bg-card: #ffffff;
+    --border: #e8eaed;
+    --border-light: #f0f2f5;
+    --text-primary: #1a1d23;
+    --text-secondary: #5f6368;
+    --text-muted: #9aa0a6;
+    --accent-blue: #1a73e8;
+    --accent-green: #137333;
+    --accent-red: #c5221f;
+    --up: #c5221f;
+    --down: #137333;
+    --tag-bg: #e8f0fe;
+    --tag-text: #1a73e8;
+    --highlight-bg: #fff8e1;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-md: 0 2px 8px rgba(0,0,0,0.10);
+    --radius: 8px;
+    --radius-sm: 4px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+    background: var(--bg); color: var(--text-primary);
+    font-size: 13px; line-height: 1.6;
+  }
+  .page-header {
+    background: #1a1d23; color: #fff;
+    padding: 16px 24px 12px; border-bottom: 3px solid var(--accent-blue);
+  }
+  .page-header h1 { font-size: 22px; font-weight: 700; letter-spacing: 1px; }
+  .page-header .meta { font-size: 11px; color: #9aa0a6; margin-top: 4px; }
+  .page-header .meta span { margin-right: 16px; }
+  .focus-notice {
+    background: #fffbf0; border-left: 4px solid #f9ab00;
+    margin: 12px 24px; padding: 10px 14px;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    font-size: 12.5px; color: #3c3c3c; line-height: 1.7;
+  }
+  .focus-notice strong { color: #b06000; }
+  .main-wrap { padding: 0 24px 32px; }
+  .section { margin-top: 18px; }
+  .section-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 14px; font-weight: 700; color: var(--text-primary);
+    padding: 0 0 8px 0; border-bottom: 2px solid var(--accent-blue);
+    margin-bottom: 10px;
+  }
+  .section-title::before {
+    content: ''; display: inline-block; width: 4px; height: 16px;
+    background: var(--accent-blue); border-radius: 2px; flex-shrink: 0;
+  }
+  table {
+    width: 100%; border-collapse: collapse;
+    background: var(--bg-card); border-radius: var(--radius);
+    overflow: hidden; box-shadow: var(--shadow);
+  }
+  thead th {
+    background: #f1f3f4; color: var(--text-secondary);
+    font-weight: 600; font-size: 12px; padding: 8px 10px;
+    text-align: left; border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 8px 10px; border-bottom: 1px solid var(--border-light);
+    vertical-align: middle; font-size: 12.5px; color: var(--text-primary);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #f8f9fb; }
+  .up { color: var(--up); font-weight: 600; }
+  .down { color: var(--down); font-weight: 600; }
+  .index-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .index-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px 14px;
+    box-shadow: var(--shadow); transition: box-shadow .15s;
+  }
+  .index-card:hover { box-shadow: var(--shadow-md); }
+  .index-card .idx-name { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+  .index-card .idx-val { font-size: 20px; font-weight: 700; }
+  .index-card .idx-val.up { color: var(--up); }
+  .index-card .idx-val.down { color: var(--down); }
+  .index-card .idx-chg { font-size: 13px; font-weight: 600; margin-top: 2px; }
+  .index-card .idx-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  .index-card .idx-note { font-size: 11px; color: var(--text-secondary); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-light); }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .rank-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%;
+    font-size: 12px; font-weight: 700; background: var(--accent-blue); color: #fff;
+  }
+  .rank-num.gold { background: #f9ab00; color: #fff; }
+  .rank-num.silver { background: #9aa0a6; color: #fff; }
+  .rank-num.bronze { background: #c8a97e; color: #fff; }
+  .status-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 20px;
+    font-size: 11px; font-weight: 600;
+  }
+  .tag-confirm { background: #e6f4ea; color: #137333; }
+  .tag-watch   { background: #e8f0fe; color: #1a73e8; }
+  .tag-weak    { background: #fce8e6; color: #c5221f; }
+  .tag-neutral { background: #f1f3f4; color: #5f6368; }
+  .catalyst-direction {
+    display: inline-block; font-weight: 700; font-size: 12px;
+    padding: 2px 6px; border-radius: 3px;
+    background: #e8f0fe; color: #1a73e8; white-space: nowrap;
+  }
+  .tier-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .tier-card {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; box-shadow: var(--shadow);
+  }
+  .tier-header {
+    padding: 8px 12px; font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .tier-header.front { background: #fce8e6; color: #c5221f; }
+  .tier-header.mid   { background: #e8f0fe; color: #1a73e8; }
+  .tier-header.rear  { background: #f1f3f4; color: #5f6368; }
+  .tier-body { padding: 10px 12px; }
+  .tier-row {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 6px 0; border-bottom: 1px dashed var(--border-light); gap: 8px;
+  }
+  .tier-row:last-child { border-bottom: none; }
+  .tier-name { font-size: 12.5px; font-weight: 600; color: var(--text-primary); flex-shrink: 0; }
+  .tier-stocks { font-size: 11px; color: var(--text-secondary); }
+  .tier-chg { font-size: 13px; font-weight: 700; flex-shrink: 0; }
+  .two-col-sentiment { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .heat-dot {
+    display: inline-block; width: 8px; height: 8px;
+    border-radius: 50%; margin-right: 4px; vertical-align: middle;
+  }
+  .heat-high   { background: #c5221f; }
+  .heat-medium { background: #f9ab00; }
+  .heat-low    { background: #137333; }
+  .anchor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .anchor-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow);
+  }
+  .anchor-card-header {
+    background: #f1f3f4; padding: 7px 12px; font-size: 12px;
+    font-weight: 700; color: var(--text-secondary); border-bottom: 1px solid var(--border);
+  }
+  .anchor-card-header.success { background: #e6f4ea; color: #137333; }
+  .anchor-card-header.fail    { background: #fce8e6; color: #c5221f; }
+  .anchor-body { padding: 0; }
+  .anchor-row {
+    display: flex; align-items: flex-start; padding: 7px 12px;
+    border-bottom: 1px solid var(--border-light); gap: 10px;
+  }
+  .anchor-row:last-child { border-bottom: none; }
+  .anchor-dir { font-weight: 700; font-size: 12px; min-width: 64px; color: var(--accent-blue); }
+  .anchor-cond { font-size: 12px; color: var(--text-primary); }
+  .anchor-stocks { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+  .dragon-box {
+    background: #fffbf0; border: 1px solid #f9ab00;
+    border-radius: var(--radius); padding: 12px 16px;
+    font-size: 12.5px; color: var(--text-primary); line-height: 1.8;
+  }
+  .dragon-box strong { color: #b06000; }
+  .source-box {
+    background: var(--bg-section); border-radius: var(--radius);
+    padding: 10px 14px; font-size: 11.5px; color: var(--text-muted); line-height: 1.8;
+  }
+  .hl-red   { color: var(--up); font-weight: 600; }
+  .hl-green { color: var(--down); font-weight: 600; }
+  .hl-blue  { color: var(--accent-blue); font-weight: 600; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #f1f3f4; }
+  ::-webkit-scrollbar-thumb { background: #c8cacc; border-radius: 3px; }
+  @media (max-width: 900px) {
+    .index-grid { grid-template-columns: repeat(3, 1fr); }
+    .two-col, .two-col-sentiment, .anchor-grid { grid-template-columns: 1fr; }
+    .tier-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .index-grid { grid-template-columns: repeat(2, 1fr); }
+    .main-wrap { padding: 0 12px 24px; }
+    .focus-notice { margin: 10px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<div class="page-header">
+  <h1>2026-06-26 &nbsp;A股盘后总结</h1>
+  <div class="meta">
+    <span>Data Time: 2026/06/26 16:00 Asia/Shanghai</span>
+    <span>|&nbsp;北京时间与东方财富主升行情口径&nbsp;&nbsp;龙虎榜数据以东方财富为准，本报告未纳入量化/程序盘参照</span>
+  </div>
+</div>
+
+<!-- ===== FOCUS ===== -->
+<div class="focus-notice">
+  <strong>焦点站位：</strong>今天<strong>(数据不足)</strong>领涨。主线题材集中在<strong>一季报增长、央企、存储芯片</strong>。
+</div>
+
+<div class="main-wrap">
+
+  <!-- ===== 指数与市场风格 ===== -->
+  <div class="section">
+    <div class="section-title">指数与市场风格</div>
+    <div class="index-grid">
+      
+      <div class="index-card">
+        <div class="idx-name">上证指数</div>
+        <div class="idx-val up">4120.28</div>
+        <div class="idx-chg up">+0.23%</div>
+        <div class="idx-meta">成交额 16189.97万亿</div>
+        <div class="idx-note">振幅1.0%</div>
+      </div>
+      
+      <div class="index-card">
+        <div class="idx-name">深证成指</div>
+        <div class="idx-val up">16344.08</div>
+        <div class="idx-chg up">+1.82%</div>
+        <div class="idx-meta">成交额 19752.91万亿</div>
+        <div class="idx-note">振幅1.9%</div>
+      </div>
+      
+      <div class="index-card">
+        <div class="idx-name">创业板指</div>
+        <div class="idx-val up">4371.99</div>
+        <div class="idx-chg up">+2.84%</div>
+        <div class="idx-meta">成交额 9765亿</div>
+        <div class="idx-note">振幅3.2%</div>
+      </div>
+      
+      <div class="index-card">
+        <div class="idx-name">沪深300</div>
+        <div class="idx-val up">5020.10</div>
+        <div class="idx-chg up">+1.56%</div>
+        <div class="idx-meta">成交额 11100.41万亿</div>
+        <div class="idx-note">振幅1.8%</div>
+      </div>
+      
+      <div class="index-card">
+        <div class="idx-name">科创50</div>
+        <div class="idx-val up">2066.33</div>
+        <div class="idx-chg up">+3.87%</div>
+        <div class="idx-meta">成交额 2205亿</div>
+        <div class="idx-note">振幅3.8%</div>
+      </div>
+      
+    </div>
+  </div>
+
+  <!-- ===== 行业主力净流入 / 净流出 ===== -->
+  <div class="section">
+    <div class="section-title">行业主力净流向</div>
+    <div class="two-col">
+      <!-- 净流入 -->
+      <div>
+        <table>
+          <thead>
+            <tr><th>行业（净流入）</th><th>涨幅</th><th>主力净流入</th><th>意义</th></tr>
+          </thead>
+          <tbody>
+            
+            <tr>
+              <td class="up">电子</td>
+              <td class="up">+3.25%</td>
+              <td class="up">+259.68亿</td>
+              <td>全天最强资金池</td>
+            </tr>
+            
+            <tr>
+              <td class="up">半导体</td>
+              <td class="up">+4.13%</td>
+              <td class="up">+154.01亿</td>
+              <td>早盘分歧后行情全面修复</td>
+            </tr>
+            
+            <tr>
+              <td class="up">数字芯片设计</td>
+              <td class="up">+4.01%</td>
+              <td class="up">+81.74亿</td>
+              <td>AI/芯片成为中枢主线</td>
+            </tr>
+            
+            <tr>
+              <td class="up">光学光电子</td>
+              <td class="up">+3.30%</td>
+              <td class="up">+65.66亿</td>
+              <td>显示储能堆强</td>
+            </tr>
+            
+            <tr>
+              <td class="up">面板</td>
+              <td class="up">+4.74%</td>
+              <td class="up">+41.62亿</td>
+              <td>科技AI领先</td>
+            </tr>
+            
+            <tr>
+              <td class="up">半导体设备</td>
+              <td class="up">+6.56%</td>
+              <td class="up">+28.40亿</td>
+              <td>拓展，中复，成果扩散</td>
+            </tr>
+            
+            <tr>
+              <td class="up">封测</td>
+              <td class="up">+4.22%</td>
+              <td class="up">+24.23亿</td>
+              <td>长电、通富、华天走强</td>
+            </tr>
+            
+            <tr>
+              <td class="up">元件</td>
+              <td class="up">+4.15%</td>
+              <td class="up">+20.26亿</td>
+              <td>PCB/元件板同质回归分化</td>
+            </tr>
+            
+          </tbody>
+        </table>
+      </div>
+      <!-- 净流出 -->
+      <div>
+        <table>
+          <thead>
+            <tr><th>行业（净流出）</th><th>涨幅</th><th>主力净流出</th><th>意义</th></tr>
+          </thead>
+          <tbody>
+            
+            <tr>
+              <td class="down">有色金属</td>
+              <td class="down">-1.06%</td>
+              <td class="down">-99.17亿</td>
+              <td>资源线流出</td>
+            </tr>
+            
+            <tr>
+              <td class="down">电力设备</td>
+              <td class="down">-0.81%</td>
+              <td class="down">-97.39亿</td>
+              <td>800V不是今天主发</td>
+            </tr>
+            
+            <tr>
+              <td class="down">基础化工</td>
+              <td class="down">-0.62%</td>
+              <td class="down">-55.05亿</td>
+              <td>涨价不被资金选择</td>
+            </tr>
+            
+            <tr>
+              <td class="down">电信</td>
+              <td class="down">-0.18%</td>
+              <td class="down">-47.52亿</td>
+              <td>新服务板块</td>
+            </tr>
+            
+            <tr>
+              <td class="down">通信</td>
+              <td class="down">-0.29%</td>
+              <td class="down">-35.69亿</td>
+              <td>CPO/通信不如半导体</td>
+            </tr>
+            
+            <tr>
+              <td class="down">汽车</td>
+              <td class="down">-0.96%</td>
+              <td class="down">-29.66亿</td>
+              <td>新能源与整车承压</td>
+            </tr>
+            
+            <tr>
+              <td class="down">传媒</td>
+              <td class="down">-2.09%</td>
+              <td class="down">-27.52亿</td>
+              <td>新旧资金离散</td>
+            </tr>
+            
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 概念与主线排序 ===== -->
+  <div class="section">
+    <div class="section-title">概念与主线排序</div>
+    <table>
+      <thead>
+        <tr><th>排名</th><th>主线</th><th>涨幅/资金</th><th>核心股</th><th>状态</th><th>明日走势</th></tr>
+      </thead>
+      <tbody>
+        
+        <tr>
+          <td><span class="rank-num gold">1</span></td>
+          <td>
+            <strong>一季报增长</strong><br>
+            <small class="hl-red">10只强势股关联，平均涨幅+12.52%</small>
+          </td>
+          <td class="up">+12.52%</td>
+          <td>美埃科技、德明利、TCL科技、北京君正</td>
+          <td><span class="status-tag tag-confirm">主线确认</span></td>
+          <td>看情绪是否延续，关注前排承接</td>
+        </tr>
+        
+        <tr>
+          <td><span class="rank-num silver">2</span></td>
+          <td>
+            <strong>央企</strong><br>
+            <small class="hl-red">10只强势股关联，平均涨幅+10.00%</small>
+          </td>
+          <td class="up">+10.00%</td>
+          <td>航天电器、蓝科高新、时代新材、五矿发展</td>
+          <td><span class="status-tag tag-confirm">主线确认</span></td>
+          <td>看情绪是否延续，关注前排承接</td>
+        </tr>
+        
+        <tr>
+          <td><span class="rank-num bronze">3</span></td>
+          <td>
+            <strong>存储芯片</strong><br>
+            <small class="hl-red">9只强势股关联，平均涨幅+12.73%</small>
+          </td>
+          <td class="up">+12.73%</td>
+          <td>迪生力、德明利、兴发集团、北京君正</td>
+          <td><span class="status-tag tag-watch">观察</span></td>
+          <td>看情绪是否延续，关注前排承接</td>
+        </tr>
+        
+        <tr>
+          <td><span class="rank-num ">4</span></td>
+          <td>
+            <strong>先进封装</strong><br>
+            <small class="hl-red">5只强势股关联，平均涨幅+10.00%</small>
+          </td>
+          <td class="up">+10.00%</td>
+          <td>至纯科技、圣泉集团、天通股份、洪田股份</td>
+          <td><span class="status-tag tag-watch">观察</span></td>
+          <td>看情绪是否延续，关注前排承接</td>
+        </tr>
+        
+        <tr>
+          <td><span class="rank-num ">5</span></td>
+          <td>
+            <strong>光纤概念</strong><br>
+            <small class="hl-red">4只强势股关联，平均涨幅+10.04%</small>
+          </td>
+          <td class="up">+10.04%</td>
+          <td>中化国际、方大炭素、泰和新材、宏柏新材</td>
+          <td><span class="status-tag tag-watch">新扩散</span></td>
+          <td>看情绪是否延续，关注前排承接</td>
+        </tr>
+        
+        <tr>
+          <td><span class="rank-num ">6</span></td>
+          <td>
+            <strong>商业航天</strong><br>
+            <small class="hl-red">3只强势股关联，平均涨幅+10.00%</small>
+          </td>
+          <td class="up">+10.00%</td>
+          <td>航天电器、鸿远电子、火炬电子</td>
+          <td><span class="status-tag tag-neutral">回调</span></td>
+          <td>看情绪是否延续，关注前排承接</td>
+        </tr>
+        
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ===== 关键催化 ===== -->
+  <div class="section">
+    <div class="section-title">关键催化：时间与来源</div>
+    <table>
+      <thead>
+        <tr><th>方向</th><th>时间</th><th>来源</th><th>证据媒体</th><th>内容</th><th>效果验证</th></tr>
+      </thead>
+      <tbody>
+        
+        <tr>
+          <td><span class="catalyst-direction">据报道 美国官员</span></td>
+          <td>2026-06-26 02:00:22</td>
+          <td>东方财富7x24快讯</td>
+          <td>财经快讯</td>
+          <td>据报道，美国官员称伊朗袭击了霍尔木兹海峡的一艘船只。</td>
+          <td>待盘面验证</td>
+        </tr>
+        
+        <tr>
+          <td><span class="catalyst-direction">委内瑞拉地震18</span></td>
+          <td>2026-06-26 01:43:45</td>
+          <td>东方财富7x24快讯</td>
+          <td>财经快讯</td>
+          <td>【委内瑞拉地震188人遇难1520人伤】委内瑞拉方面发布的最新统计显示，委内瑞拉北部地震6月24日的接连强震已造成至少188人遇难、1520人受伤，此外还有200人被困。委内瑞拉全国代表大会主席豪尔赫·罗德里格斯称，截至目前统计共有250栋建筑物受损毁，主要集中在拉瓜伊拉州。</td>
+          <td>待盘面验证</td>
+        </tr>
+        
+        <tr>
+          <td><span class="catalyst-direction">Stellant</span></td>
+          <td>2026-06-26 01:33:03</td>
+          <td>东方财富7x24快讯</td>
+          <td>财经快讯</td>
+          <td>Stellantis与日产据悉正就收购陷入困境的马瑞利的资产进行谈判。</td>
+          <td>待盘面验证</td>
+        </tr>
+        
+        <tr>
+          <td><span class="catalyst-direction">委内瑞拉埃尔帕利</span></td>
+          <td>2026-06-26 01:23:08</td>
+          <td>东方财富7x24快讯</td>
+          <td>财经快讯</td>
+          <td>委内瑞拉埃尔帕利托炼油厂因地震引发的停电而部分停摆。</td>
+          <td>待盘面验证</td>
+        </tr>
+        
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ===== 前排/中军/后排 ===== -->
+  <div class="section">
+    <div class="section-title">前排 / 中军 / 后排</div>
+    <div class="tier-grid">
+      <!-- 前排 -->
+      <div class="tier-card">
+        <div class="tier-header front">🔥 前排（龙头）</div>
+        <div class="tier-body">
+          
+          <div class="tier-row">
+            <div>
+              <div class="tier-name">存储芯片+收购半导体</div>
+              <div class="tier-stocks">迪生力</div>
+            </div>
+            <div class="tier-chg up">+10.04%</div>
+          </div>
+          
+          <div class="tier-row">
+            <div>
+              <div class="tier-name">超算登顶+存储破纪录</div>
+              <div class="tier-stocks">中科曙光</div>
+            </div>
+            <div class="tier-chg up">+10.00%</div>
+          </div>
+          
+          <div class="tier-row">
+            <div>
+              <div class="tier-name">阿尔茨海默症新药+创</div>
+              <div class="tier-stocks">通化金马</div>
+            </div>
+            <div class="tier-chg up">+10.00%</div>
+          </div>
+          
+          <div class="tier-row">
+            <div>
+              <div class="tier-name">洁净室龙头+空气净化</div>
+              <div class="tier-stocks">美埃科技</div>
+            </div>
+            <div class="tier-chg up">+20.00%</div>
+          </div>
+          
+        </div>
+      </div>
+      <!-- 中军 -->
+      <div class="tier-card">
+        <div class="tier-header mid">📊 中军</div>
+        <div class="tier-body">
+          
+          <div class="tier-row">
+            <div>
+              <div class="tier-name">超跌反弹+建筑涂料+</div>
+              <div class="tier-stocks">*ST亚士</div>
+            </div>
+            <div class="tier-chg up">+5.03%</div>
+          </div>
+          
+          <div class="tier-row">
+            <div>
+              <div class="tier-name">半导体封测+拟收购北</div>
+              <div class="tier-stocks">*ST中迪</div>
+            </div>
+            <div class="tier-chg up">+5.03%</div>
+          </div>
+          
+        </div>
+      </div>
+      <!-- 后排 -->
+      <div class="tier-card">
+        <div class="tier-header rear">📉 后排 / 跟风</div>
+        <div class="tier-body">
+          
+          <div class="tier-row">
+            <div>
+              <div class="tier-name">后排跟风</div>
+              <div class="tier-stocks">(待补充)</div>
+            </div>
+            <div class="tier-chg ">--</div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 舆情监测 + 持仓影响 ===== -->
+  <div class="section">
+    <div class="two-col-sentiment">
+      <!-- 舆情监测 -->
+      <div>
+        <div class="section-title">舆情监测</div>
+        <table>
+          <thead>
+            <tr><th>来源</th><th>方向</th><th>热度</th><th>关键事件</th><th>盘前/盘后</th><th>操作建议</th></tr>
+          </thead>
+          <tbody>
+            
+            <tr>
+              <td>同花顺热点/东方财富</td>
+              <td>一季报增长</td>
+              <td><span class="heat-dot heat-high"></span>高</td>
+              <td>10只强势股归因一季报增长</td>
+              <td>盘后统计</td>
+              <td>关注前排承接与资金延续性</td>
+            </tr>
+            
+            <tr>
+              <td>同花顺热点/东方财富</td>
+              <td>央企</td>
+              <td><span class="heat-dot heat-high"></span>高</td>
+              <td>10只强势股归因央企</td>
+              <td>盘后统计</td>
+              <td>关注前排承接与资金延续性</td>
+            </tr>
+            
+            <tr>
+              <td>同花顺热点/东方财富</td>
+              <td>存储芯片</td>
+              <td><span class="heat-dot heat-high"></span>高</td>
+              <td>9只强势股归因存储芯片</td>
+              <td>盘后统计</td>
+              <td>关注前排承接与资金延续性</td>
+            </tr>
+            
+            <tr>
+              <td>同花顺热点/东方财富</td>
+              <td>先进封装</td>
+              <td><span class="heat-dot heat-high"></span>高</td>
+              <td>5只强势股归因先进封装</td>
+              <td>盘后统计</td>
+              <td>关注前排承接与资金延续性</td>
+            </tr>
+            
+          </tbody>
+        </table>
+      </div>
+      <!-- 持仓影响 -->
+      <div>
+        <div class="section-title">持仓影响</div>
+        <table>
+          <thead>
+            <tr><th>持仓</th><th>收盘涨跌</th><th>主力净量</th><th>定位</th><th>明日走势</th></tr>
+          </thead>
+          <tbody>
+            
+            <tr>
+              <td><strong>澜起科技<br>688008</strong></td>
+              <td class="down">-7.51%</td>
+              <td class="down">-9.13亿</td>
+              <td>午后存储芯片主流一线品种</td>
+              <td>不再推荐高开后承接，明天看是否高开后还有承接</td>
+            </tr>
+            
+            <tr>
+              <td><strong>欣锐科技<br>300870</strong></td>
+              <td class="down">-0.27%</td>
+              <td class="down">-1.12亿</td>
+              <td>800V前储备板块</td>
+              <td>效率低，观望</td>
+            </tr>
+            
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 明日锚点与失败信号 ===== -->
+  <div class="section">
+    <div class="section-title">明日锚点与失败信号</div>
+    <div class="anchor-grid">
+      <div class="anchor-card">
+        <div class="anchor-card-header success">✅ 明日锚点（做多条件）</div>
+        <div class="anchor-body">
+          
+          <div class="anchor-row">
+            <div>
+              <div class="anchor-dir">一季报增长</div>
+              <div class="anchor-cond">一季报增长前排高开不跌，资金承接延续</div>
+              <div class="anchor-stocks">美埃科技、德明利、TCL科技</div>
+            </div>
+          </div>
+          
+          <div class="anchor-row">
+            <div>
+              <div class="anchor-dir">央企</div>
+              <div class="anchor-cond">央企前排高开不跌，资金承接延续</div>
+              <div class="anchor-stocks">航天电器、蓝科高新、时代新材</div>
+            </div>
+          </div>
+          
+          <div class="anchor-row">
+            <div>
+              <div class="anchor-dir">存储芯片</div>
+              <div class="anchor-cond">存储芯片前排高开不跌，资金承接延续</div>
+              <div class="anchor-stocks">迪生力、德明利、兴发集团</div>
+            </div>
+          </div>
+          
+          <div class="anchor-row">
+            <div>
+              <div class="anchor-dir">先进封装</div>
+              <div class="anchor-cond">先进封装前排高开不跌，资金承接延续</div>
+              <div class="anchor-stocks">至纯科技、圣泉集团、天通股份</div>
+            </div>
+          </div>
+          
+          <div class="anchor-row">
+            <div>
+              <div class="anchor-dir">光纤概念</div>
+              <div class="anchor-cond">光纤概念前排高开不跌，资金承接延续</div>
+              <div class="anchor-stocks">中化国际、方大炭素、泰和新材</div>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+      <div class="anchor-card">
+        <div class="anchor-card-header fail">❌ 失败信号（止损/警示条件）</div>
+        <div class="anchor-body">
+          
+          <div class="anchor-row">
+            <div>
+              <div class="anchor-dir hl-red">一季报增长</div>
+              <div class="anchor-cond">一季报增长前排高开后大幅回调，资金撤离</div>
+              <div class="anchor-stocks">美埃科技、德明利、TCL科技</div>
+            </div>
+          </div>
+          
+          <div class="anchor-row">
+            <div>
+              <div class="anchor-dir hl-red">央企</div>
+              <div class="anchor-cond">央企前排高开后大幅回调，资金撤离</div>
+              <div class="anchor-stocks">航天电器、蓝科高新、时代新材</div>
+            </div>
+          </div>
+          
+          <div class="anchor-row">
+            <div>
+              <div class="anchor-dir hl-red">存储芯片</div>
+              <div class="anchor-cond">存储芯片前排高开后大幅回调，资金撤离</div>
+              <div class="anchor-stocks">迪生力、德明利、兴发集团</div>
+            </div>
+          </div>
+          
+          <div class="anchor-row">
+            <div>
+              <div class="anchor-dir hl-red">先进封装</div>
+              <div class="anchor-cond">先进封装前排高开后大幅回调，资金撤离</div>
+              <div class="anchor-stocks">至纯科技、圣泉集团、天通股份</div>
+            </div>
+          </div>
+          
+          <div class="anchor-row">
+            <div>
+              <div class="anchor-dir hl-red">光纤概念</div>
+              <div class="anchor-cond">光纤概念前排高开后大幅回调，资金撤离</div>
+              <div class="anchor-stocks">中化国际、方大炭素、泰和新材</div>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 龙虎榜状态 ===== -->
+  <div class="section">
+    <div class="section-title">龙虎榜状态</div>
+    <div class="dragon-box">
+      <strong>📋 报告生成时间：</strong>龙虎榜数据暂未更新（可能非交易日或盘后未发布）。建议稍后查看东方财富龙虎榜页面获取最新数据。
+    </div>
+  </div>
+
+  <!-- ===== 来源 ===== -->
+  <div class="section">
+    <div class="section-title">来源</div>
+    <div class="source-box">腾讯财经API（五大指数实时行情）；东方财富push2（行业板块排名）；同花顺热点（当日强势股+题材归因）；东方财富7x24快讯（催化新闻）；东方财富数据中心（龙虎榜）。</div>
+  </div>
+
+</div><!-- /main-wrap -->
+</body>
+</html>
