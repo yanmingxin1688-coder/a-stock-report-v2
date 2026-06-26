@@ -28,11 +28,19 @@ import math
 import os
 import random
 import re
+import subprocess
 import time
 import urllib.request
 import uuid
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlencode
+
+# 清除代理环境变量，防止沙盒/Clash 残留配置拦截请求
+for _proxy_key in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
+    os.environ.pop(_proxy_key, None)
+os.environ["NO_PROXY"] = "*"
+os.environ["no_proxy"] = "*"
 
 import requests
 
@@ -283,14 +291,35 @@ def fetch_real_data():
     _em_last_call = [0.0]
 
     def em_get(url, params=None, headers=None, timeout=15, **kwargs):
-        """东财统一请求入口：自动节流 + 复用 session"""
+        """东财统一请求入口：自动节流 + 复用 session + 绕过系统代理"""
         wait = EM_MIN_INTERVAL - (time.time() - _em_last_call[0])
         if wait > 0:
             time.sleep(wait + random.uniform(0.1, 0.5))
         try:
-            return EM_SESSION.get(url, params=params, headers=headers, timeout=timeout, **kwargs)
+            return EM_SESSION.get(url, params=params, headers=headers,
+                                  timeout=timeout, proxies={"http": None, "https": None}, **kwargs)
         finally:
             _em_last_call[0] = time.time()
+
+    def _curl_json(url, params=None, headers=None, timeout=15):
+        """用 curl 子进程拉 JSON（绕过 Python TLS 兼容性问题）"""
+        cmd = ["curl", "-s", "--max-time", str(timeout)]
+        # 只在调用方未提供 UA 时才加默认 UA，避免重复
+        ua_provided = headers and any(k.lower() == "user-agent" for k in headers)
+        if not ua_provided:
+            cmd += ["-H", "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"]
+        if headers:
+            for k, v in headers.items():
+                cmd += ["-H", f"{k}: {v}"]
+        if params:
+            full_url = url + "?" + urlencode(params)
+        else:
+            full_url = url
+        cmd.append(full_url)
+        raw = subprocess.check_output(cmd, timeout=timeout + 5,
+                                     env={k: v for k, v in os.environ.items()
+                                          if "PROXY" not in k.upper()})
+        return json.loads(raw.decode("utf-8"))
 
     # ── 数据获取 ──────────────────────────────────────
 
@@ -322,15 +351,18 @@ def fetch_real_data():
             is_up = change_pct_val >= 0
             change_pct = f"+{change_pct_val:.2f}%" if is_up else f"{change_pct_val:.2f}%"
             amount_wan = float(vals[37]) if vals[37] else 0
-            # 成交额格式化
-            if amount_wan >= 100000000:  # 万 → 亿
+            # 成交额格式化（A股惯例用成交额）
+            if amount_wan >= 100000000:
                 vol_str = f"成交额 {amount_wan/10000:.2f}万亿"
             elif amount_wan >= 10000:
                 vol_str = f"成交额 {amount_wan/10000:.0f}亿"
             else:
                 vol_str = f"成交额 {amount_wan:.0f}万"
+            vol_yi = amount_wan / 10000  # 万 → 亿
             amplitude = float(vals[43]) if vals[43] else 0
-            note = f"振幅{amplitude:.1f}%"
+            up_count = int(float(vals[48])) if vals[48] else 0
+            down_count = int(float(vals[49])) if vals[49] else 0
+            note = f"振幅{amplitude:.1f}% | 涨{up_count}/跌{down_count}"
             indices.append({
                 "name": name, "value": f"{float(price):.2f}",
                 "change_pct": change_pct, "is_up": is_up,
@@ -341,24 +373,28 @@ def fetch_real_data():
         print(f"    ❌ 指数获取失败: {e}")
         indices = build_mock_data()["indices"]
 
-    # 2) 行业板块排名 — 东财 push2（有限流）
+    # 2) 行业板块排名 — push2delay 直连（push2 在沙盒/规则代理下被服务端 RST，push2delay 镜像通）
     print("  [2/6] 拉取行业板块排名...")
     inflow_sectors = []
     outflow_sectors = []
     sector_top5_names = []
     sector_bottom5_names = []
-    try:
-        url = "https://push2.eastmoney.com/api/qt/clist/get"
-        params = {
-            "pn": "1", "pz": "90", "po": "1", "np": "1",
-            "fltt": "2", "invt": "2",
-            "fs": "m:90+t:2",
-            "fields": "f2,f3,f4,f12,f13,f14,f104,f105,f128,f136,f140,f141,f207",
-        }
-        r = em_get(url, params=params, headers={"User-Agent": UA}, timeout=15)
-        d = r.json()
-        items = d.get("data", {}).get("diff", [])
-        if items:
+    sector_data_source = "eastmoney_push2delay_curl"
+    # 按可用性顺序尝试多个 push2 镜像
+    for push2_host in ("push2delay.eastmoney.com", "push2.eastmoney.com"):
+        try:
+            url = f"https://{push2_host}/api/qt/clist/get"
+            params = {
+                "pn": "1", "pz": "90", "po": "1", "np": "1",
+                "fltt": "2", "invt": "2",
+                "fs": "m:90+t:2",
+                "fields": "f2,f3,f4,f12,f13,f14,f104,f105,f128,f136,f140,f141,f207",
+            }
+            d = _curl_json(url, params=params, headers={"User-Agent": UA, "Referer": "https://www.eastmoney.com/"}, timeout=15)
+            items = d.get("data", {}).get("diff", [])
+            if not items:
+                raise ValueError(f"{push2_host} 返回空数据，尝试下一个镜像")
+            sector_data_source = f"eastmoney_{push2_host.replace('.eastmoney.com','')}_curl"
             rows = []
             for item in items:
                 change_pct = float(item.get("f3", 0) or 0)
@@ -374,10 +410,8 @@ def fetch_real_data():
                     "down_count": down_count,
                     "leader": leader,
                 })
-            # 按涨幅排序：净流入 = 涨幅前8，净流出 = 涨幅后7
             rows_sorted = sorted(rows, key=lambda x: x["change_pct_raw"], reverse=True)
             for r in rows_sorted[:8]:
-                sign = "+" if r["change_pct_raw"] >= 0 else ""
                 meaning = f"涨{r['up_count']}跌{r['down_count']}，领涨{r['leader']}"
                 inflow_sectors.append({
                     "name": r["name"],
@@ -395,11 +429,66 @@ def fetch_real_data():
                     "meaning": meaning,
                 })
                 sector_bottom5_names.append(r["name"])
-        print(f"    ✅ 净流入 {len(inflow_sectors)} 行业 / 净流出 {len(outflow_sectors)} 行业")
-    except Exception as e:
-        print(f"    ❌ 行业板块获取失败: {e}")
-        inflow_sectors = build_mock_data()["inflow_sectors"]
-        outflow_sectors = build_mock_data()["outflow_sectors"]
+            print(f"    ✅ {push2_host} 净流入 {len(inflow_sectors)} 行业 / 净流出 {len(outflow_sectors)} 行业")
+            break  # 成功就退出 for
+        except Exception as e:
+            print(f"    ⚠️ {push2_host} 失败 ({e})")
+    else:
+        # 所有镜像都失败，回退 akshare
+        print(f"    ⚠️ push2 全镜像失败，尝试 akshare 备用源...")
+        # 清除环境变量中的代理设置，让 akshare 内部请求直连（不被沙盒反代拦截）
+        _orig_http_proxy = os.environ.pop("HTTP_PROXY", "")
+        _orig_https_proxy = os.environ.pop("HTTPS_PROXY", "")
+        _orig_http_proxy2 = os.environ.pop("http_proxy", "")
+        _orig_https_proxy2 = os.environ.pop("https_proxy", "")
+        os.environ["NO_PROXY"] = "*"
+        try:
+            import akshare as ak
+            df = ak.stock_board_industry_name_em()
+            if df is not None and not df.empty:
+                df_sorted = df.sort_values(by="涨跌幅", ascending=False)
+                sector_data_source = "akshare_stock_board_industry"
+                for _, row in df_sorted.head(8).iterrows():
+                    name = str(row.get("板块名称", ""))
+                    chg = float(row.get("涨跌幅", 0) or 0)
+                    up_c = int(row.get("上涨家数", 0) or 0)
+                    down_c = int(row.get("下跌家数", 0) or 0)
+                    leader = str(row.get("领涨股票", ""))
+                    meaning = f"涨{up_c}跌{down_c}，领涨{leader}"
+                    inflow_sectors.append({
+                        "name": name,
+                        "change_pct": f"+{chg:.2f}%" if chg >= 0 else f"{chg:.2f}%",
+                        "net_flow": f"+{abs(chg)*10:.1f}亿(估)",
+                        "meaning": meaning,
+                    })
+                    sector_top5_names.append(name)
+                for _, row in df_sorted.tail(7).iterrows():
+                    name = str(row.get("板块名称", ""))
+                    chg = float(row.get("涨跌幅", 0) or 0)
+                    up_c = int(row.get("上涨家数", 0) or 0)
+                    down_c = int(row.get("下跌家数", 0) or 0)
+                    meaning = f"涨{up_c}跌{down_c}，资金流出"
+                    outflow_sectors.append({
+                        "name": name,
+                        "change_pct": f"+{chg:.2f}%" if chg >= 0 else f"{chg:.2f}%",
+                        "net_flow": f"-{abs(chg)*10:.1f}亿(估)",
+                        "meaning": meaning,
+                    })
+                    sector_bottom5_names.append(name)
+                print(f"    ✅ akshare 备用源 净流入 {len(inflow_sectors)} 行业 / 净流出 {len(outflow_sectors)} 行业")
+            else:
+                raise ValueError("akshare 返回空 DataFrame")
+        except Exception as e2:
+            print(f"    ❌ akshare 备用源也失败: {e2}")
+            inflow_sectors = build_mock_data()["inflow_sectors"]
+            outflow_sectors = build_mock_data()["outflow_sectors"]
+            sector_data_source = "mock"
+        finally:
+            # 恢复环境变量
+            if _orig_http_proxy: os.environ["HTTP_PROXY"] = _orig_http_proxy
+            if _orig_https_proxy: os.environ["HTTPS_PROXY"] = _orig_https_proxy
+            if _orig_http_proxy2: os.environ["http_proxy"] = _orig_http_proxy2
+            if _orig_https_proxy2: os.environ["https_proxy"] = _orig_https_proxy2
 
     # 3) 同花顺热点 — 当日强势股 + 题材归因
     print("  [3/6] 拉取当日强势股归因...")
@@ -874,12 +963,27 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
 <!-- ===== HEADER ===== -->
 <div class="page-header">
-  <h1>{{ report_date }} &nbsp;A股盘后总结</h1>
+  <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+    <h1>{{ report_date }} &nbsp;A股盘后总结</h1>
+    <div class="date-nav">
+      <label for="dateSelect" style="font-size:11px;color:#9aa0a6;margin-right:6px;">📅 查看历史：</label>
+      <select id="dateSelect" onchange="goToDate(this.value)" style="background:#2d3038;color:#fff;border:1px solid #444;padding:4px 10px;border-radius:4px;font-size:13px;cursor:pointer;">
+        {% for d in available_dates %}
+        <option value="{{ d.file }}" {% if d.date == report_date %}selected{% endif %}>{{ d.date }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
   <div class="meta">
     <span>Data Time: {{ data_time }}</span>
     <span>|&nbsp;北京时间与东方财富主升行情口径&nbsp;&nbsp;龙虎榜数据以东方财富为准，本报告未纳入量化/程序盘参照</span>
   </div>
 </div>
+<script>
+function goToDate(file) {
+  if (file) window.location.href = file;
+}
+</script>
 
 <!-- ===== FOCUS ===== -->
 <div class="focus-notice">
@@ -1170,16 +1274,45 @@ def render_report(data):
         return result
 
 
-def save_report(html_content, report_date):
+def scan_available_dates(output_dir):
+    """扫描目录下已有的报告文件，生成日期列表（最新在前）"""
+    import re as _re
+    pattern = _re.compile(r"a_stock_daily_summary_(\d{4}-\d{2}-\d{2})\.html")
+    dates = []
+    for f in Path(output_dir).glob("a_stock_daily_summary_*.html"):
+        m = pattern.match(f.name)
+        if m:
+            dates.append({
+                "date": m.group(1),
+                "file": f.name,
+            })
+    # 按日期降序排列（最新日期在最前面）
+    dates.sort(key=lambda x: x["date"], reverse=True)
+    return dates
+
+
+def save_report(html_content, report_date, data=None):
     """保存 HTML 文件到当前目录"""
-    # 文件名：a_stock_daily_summary_2026-06-25.html
     filename = f"a_stock_daily_summary_{report_date}.html"
-    output_path = Path(__file__).parent / filename
+    output_dir = Path(__file__).parent
+    output_path = output_dir / filename
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(html_content)
 
     print(f"✅ 报告已生成: {output_path}")
+
+    # 同时更新 index.html（GitHub Pages 入口）
+    index_path = output_dir / "index.html"
+    # 扫描已有日期，重新渲染 index.html（带完整的日期选择器）
+    if data is not None:
+        available_dates = scan_available_dates(output_dir)
+        data["available_dates"] = available_dates
+        index_html = render_report(data)
+        with open(index_path, "w", encoding="utf-8") as f:
+            f.write(index_html)
+        print(f"✅ index.html 已更新（含 {len(available_dates)} 个历史日期）")
+
     return output_path
 
 
@@ -1192,7 +1325,7 @@ def main(use_real_data=False):
     主流程：
       1. 获取数据（真实 API 或模拟）
       2. 渲染 HTML 模板
-      3. 保存文件
+      3. 保存文件 + 更新 index.html
     """
     print("=" * 50)
     print("  A股盘后总结 — 自动报告生成引擎")
@@ -1208,16 +1341,27 @@ def main(use_real_data=False):
 
     print(f"   日期: {data['report_date']}")
 
+    # 扫描已有历史报告，注入日期列表
+    output_dir = Path(__file__).parent
+    available_dates = scan_available_dates(output_dir)
+    # 加入今天的日期（如果还没有的话）
+    today_entry = {"date": data["report_date"], "file": f"a_stock_daily_summary_{data['report_date']}.html"}
+    if not any(d["date"] == data["report_date"] for d in available_dates):
+        available_dates.insert(0, today_entry)
+    data["available_dates"] = available_dates
+    print(f"   历史报告: {len(available_dates)} 个日期")
+
     # 第二步：渲染 HTML
     print("\n🎨 正在渲染 HTML 模板...")
     html = render_report(data)
 
-    # 第三步：保存文件
+    # 第三步：保存文件 + 更新 index.html
     print("\n💾 正在保存报告...")
-    output_path = save_report(html, data["report_date"])
+    output_path = save_report(html, data["report_date"], data=data)
 
     print(f"\n📄 报告大小: {len(html):,} 字符")
     print(f"📍 文件位置: {output_path}")
+    print(f"📍 GitHub Pages: {output_dir / 'index.html'}")
     print("\n✨ 完成！用浏览器打开上面的文件即可查看。")
 
     return output_path
