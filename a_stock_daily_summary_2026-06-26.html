@@ -195,7 +195,16 @@
 
 <!-- ===== HEADER ===== -->
 <div class="page-header">
-  <h1>2026-06-26 &nbsp;A股盘后总结</h1>
+  <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+    <h1>2026-06-26&nbsp;A股盘后总结</h1>
+    <div class="date-nav">
+      <label for="dateSelect" style="font-size:11px;color:#9aa0a6;margin-right:6px;">📅 查看历史：</label>
+      <select id="dateSelect" onchange="goToDate(this.value)" style="background:#2d3038;color:#fff;border:1px solid #444;padding:4px 10px;border-radius:4px;font-size:13px;cursor:pointer;">
+        <option value="a_stock_daily_summary_2026-06-27.html">2026-06-27</option>
+        <option value="a_stock_daily_summary_2026-06-26.html" selected>2026-06-26</option>
+      </select>
+    </div>
+  </div>
   <div class="meta">
     <span>Data Time: 2026/06/26 16:00 Asia/Shanghai</span>
     <span>|&nbsp;北京时间与东方财富主升行情口径&nbsp;&nbsp;龙虎榜数据以东方财富为准，本报告未纳入量化/程序盘参照</span>
@@ -805,5 +814,11 @@
   </div>
 
 </div><!-- /main-wrap -->
+
+<script>
+function goToDate(file) {
+  if (file) window.location.href = file;
+}
+</script>
 </body>
 </html>

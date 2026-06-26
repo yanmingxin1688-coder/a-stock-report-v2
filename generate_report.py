@@ -1291,8 +1291,99 @@ def scan_available_dates(output_dir):
     return dates
 
 
+def _build_select_html(available_dates, selected_date):
+    """构造完整的日期选择器 HTML"""
+    import re as _re
+    options_html = ""
+    for d in available_dates:
+        sel = ' selected' if d["date"] == selected_date else ''
+        options_html += '<option value="' + d["file"] + '"' + sel + '>' + d["date"] + '</option>\n        '
+    return (
+        '<select id="dateSelect" onchange="goToDate(this.value)" '
+        'style="background:#2d3038;color:#fff;border:1px solid #444;padding:4px 10px;'
+        'border-radius:4px;font-size:13px;cursor:pointer;">\n        '
+        + options_html.strip() + '\n      </select>'
+    )
+
+
+def update_all_date_selectors(output_dir, available_dates, current_date):
+    """更新所有历史报告 HTML 的日期选择器，确保每个页面都能跳转到任意日期
+    
+    处理两种情况：
+      1. 已有 dateSelect 的文件 → 直接替换 <select> 选项，修正 selected
+      2. 没有 dateSelect 的旧文件 → 注入完整的日期导航栏 + goToDate 脚本
+    """
+    import re as _re
+    pattern = _re.compile(r"a_stock_daily_summary_(\d{4}-\d{2}-\d{2})\.html")
+    files_to_update = list(Path(output_dir).glob("a_stock_daily_summary_*.html"))
+    files_to_update.append(output_dir / "index.html")
+    
+    for f in files_to_update:
+        if not f.exists():
+            continue
+        content = f.read_text(encoding="utf-8")
+        
+        # 提取该文件自身日期（用于设置 selected）
+        file_date = current_date  # 默认
+        file_date_match = pattern.match(f.name)
+        if file_date_match:
+            file_date = file_date_match.group(1)
+        
+        # 构造针对该文件的 select HTML（selected 设置为该文件自身日期）
+        select_html = _build_select_html(available_dates, file_date)
+        
+        # ── 情况1：已有 dateSelect → 替换 select 选项 ──
+        if 'id="dateSelect"' in content:
+            select_pattern = _re.compile(
+                r'<select id="dateSelect"[^>]*>.*?</select>',
+                _re.DOTALL
+            )
+            new_content = select_pattern.sub(select_html, content)
+            if new_content != content:
+                f.write_text(new_content, encoding="utf-8")
+                print(f"    ✅ 更新 {f.name} 的日期选择器选项")
+            continue
+        
+        # ── 情况2：没有 dateSelect → 注入完整的日期导航 + 脚本 ──
+        date_nav_html = (
+            '<div class="date-nav">\n'
+            '      <label for="dateSelect" style="font-size:11px;color:#9aa0a6;margin-right:6px;">'
+            '📅 查看历史：</label>\n      '
+            + select_html + '\n'
+            '    </div>'
+        )
+        
+        # 注入 goToDate 脚本（在 </body> 前插入）
+        go_to_date_script = (
+            '\n<script>\nfunction goToDate(file) {\n'
+            '  if (file) window.location.href = file;\n}\n</script>\n'
+        )
+        
+        # 将 <h1>...</h1> 改成 flex 布局 + 日期导航
+        # 旧格式: <h1>2026-06-26 &nbsp;A股盘后总结</h1>
+        # 新格式: <div style="display:flex;..."><h1>...</h1><div class="date-nav">...</div></div>
+        h1_pattern = _re.compile(r'<h1>([^&]*?)&nbsp;A股盘后总结</h1>')
+        h1_match = h1_pattern.search(content)
+        if h1_match:
+            old_h1 = h1_match.group(0)
+            h1_date_str = h1_match.group(1).strip()
+            new_header_inner = (
+                '<div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">\n'
+                '    <h1>' + h1_date_str + '&nbsp;A股盘后总结</h1>\n'
+                '    ' + date_nav_html + '\n'
+                '  </div>'
+            )
+            new_content = content.replace(old_h1, new_header_inner)
+            # 注入脚本
+            new_content = new_content.replace('</body>', go_to_date_script + '</body>')
+            f.write_text(new_content, encoding="utf-8")
+            print(f"    ✅ 注入 {f.name} 的日期导航栏（旧模板升级）")
+        else:
+            print(f"    ⚠️ {f.name} 无法识别 h1 标题，跳过")
+
+
 def save_report(html_content, report_date, data=None):
-    """保存 HTML 文件到当前目录"""
+    """保存 HTML 文件到当前目录，并更新所有历史报告的日期选择器"""
     filename = f"a_stock_daily_summary_{report_date}.html"
     output_dir = Path(__file__).parent
     output_path = output_dir / filename
@@ -1304,7 +1395,6 @@ def save_report(html_content, report_date, data=None):
 
     # 同时更新 index.html（GitHub Pages 入口）
     index_path = output_dir / "index.html"
-    # 扫描已有日期，重新渲染 index.html（带完整的日期选择器）
     if data is not None:
         available_dates = scan_available_dates(output_dir)
         data["available_dates"] = available_dates
@@ -1312,6 +1402,10 @@ def save_report(html_content, report_date, data=None):
         with open(index_path, "w", encoding="utf-8") as f:
             f.write(index_html)
         print(f"✅ index.html 已更新（含 {len(available_dates)} 个历史日期）")
+        
+        # 更新所有历史报告的日期选择器
+        print("🔄 同步更新所有历史报告的日期选择器...")
+        update_all_date_selectors(output_dir, available_dates, report_date)
 
     return output_path
 
