@@ -179,15 +179,75 @@
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: #f1f3f4; }
   ::-webkit-scrollbar-thumb { background: #c8cacc; border-radius: 3px; }
+
+  /* ── 全局响应式基础 ── */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-wrap table { min-width: 500px; }
+
+  /* ── 大屏（≥1024px）：5列指数 ── */
+  @media (min-width: 1024px) {
+    .index-grid { grid-template-columns: repeat(5, 1fr); }
+  }
+
+  /* ── 中屏（600~900px）：3列指数，2列布局变1列 ── */
   @media (max-width: 900px) {
     .index-grid { grid-template-columns: repeat(3, 1fr); }
     .two-col, .two-col-sentiment, .anchor-grid { grid-template-columns: 1fr; }
     .tier-grid { grid-template-columns: 1fr; }
   }
+
+  /* ── 手机（≤600px）：2列指数，全面紧凑 ── */
   @media (max-width: 600px) {
-    .index-grid { grid-template-columns: repeat(2, 1fr); }
-    .main-wrap { padding: 0 12px 24px; }
-    .focus-notice { margin: 10px 12px; }
+    body { font-size: 12px; line-height: 1.5; }
+    .index-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+    .index-card { padding: 8px 10px; }
+    .index-card .idx-val { font-size: 16px; }
+    .index-card .idx-chg { font-size: 12px; }
+    .index-card .idx-meta { font-size: 10px; }
+    .index-card .idx-note { font-size: 10px; margin-top: 4px; padding-top: 4px; }
+
+    .page-header { padding: 10px 14px 8px; }
+    .page-header h1 { font-size: 16px; letter-spacing: 0; }
+    .page-header .meta { font-size: 10px; }
+    .page-header .meta span { margin-right: 6px; }
+    .page-header .date-nav { margin-top: 6px; }
+
+    .focus-notice { margin: 8px 10px; padding: 8px 10px; font-size: 12px; }
+    .main-wrap { padding: 0 10px 20px; }
+    .section { margin-top: 12px; }
+    .section-title { font-size: 13px; margin-bottom: 6px; }
+
+    thead th { font-size: 10px; padding: 6px 6px; }
+    tbody td { font-size: 11.5px; padding: 6px 6px; }
+
+    .tier-header { padding: 6px 10px; font-size: 12px; }
+    .tier-body { padding: 8px 10px; }
+    .tier-name { font-size: 11.5px; }
+    .tier-stocks { font-size: 10px; }
+    .tier-chg { font-size: 12px; }
+
+    .rank-num { width: 18px; height: 18px; font-size: 10px; }
+    .catalyst-direction { font-size: 10px; padding: 2px 4px; }
+
+    .anchor-dir { font-size: 11px; min-width: 50px; }
+    .anchor-cond { font-size: 11px; }
+    .anchor-stocks { font-size: 10px; }
+    .anchor-row { padding: 6px 10px; }
+
+    .dragon-box { padding: 8px 10px; font-size: 11.5px; }
+    .source-box { padding: 8px 10px; font-size: 10.5px; }
+    .status-tag { font-size: 10px; }
+
+    /* 手机端日期选择器更友好 */
+    .date-nav select { font-size: 12px; padding: 4px 6px; }
+    .date-nav label { font-size: 10px; }
+  }
+
+  /* ── 极窄屏（≤380px）：指数变1列，完全紧凑 ── */
+  @media (max-width: 380px) {
+    .index-grid { grid-template-columns: 1fr 1fr; }
+    .page-header h1 { font-size: 14px; }
+    .table-wrap table { min-width: 320px; }
   }
 </style>
 </head>
@@ -276,7 +336,7 @@ function goToDate(file) {
     <div class="section-title">行业主力净流向</div>
     <div class="two-col">
       <!-- 净流入 -->
-      <div>
+      <div class="table-wrap">
         <table>
           <thead>
             <tr><th>行业（净流入）</th><th>涨幅</th><th>主力净流入</th><th>意义</th></tr>
@@ -343,7 +403,7 @@ function goToDate(file) {
         </table>
       </div>
       <!-- 净流出 -->
-      <div>
+      <div class="table-wrap">
         <table>
           <thead>
             <tr><th>行业（净流出）</th><th>涨幅</th><th>主力净流出</th><th>意义</th></tr>
@@ -408,6 +468,7 @@ function goToDate(file) {
   <!-- ===== 概念与主线排序 ===== -->
   <div class="section">
     <div class="section-title">概念与主线排序</div>
+    <div class="table-wrap">
     <table>
       <thead>
         <tr><th>排名</th><th>主线</th><th>涨幅/资金</th><th>核心股</th><th>状态</th><th>明日走势</th></tr>
@@ -488,11 +549,13 @@ function goToDate(file) {
         
       </tbody>
     </table>
+    </div>
   </div>
 
   <!-- ===== 关键催化 ===== -->
   <div class="section">
     <div class="section-title">关键催化：时间与来源</div>
+    <div class="table-wrap">
     <table>
       <thead>
         <tr><th>方向</th><th>时间</th><th>来源</th><th>证据媒体</th><th>内容</th><th>效果验证</th></tr>
@@ -500,43 +563,44 @@ function goToDate(file) {
       <tbody>
         
         <tr>
-          <td><span class="catalyst-direction">AI是“电老虎”</span></td>
-          <td>2026-06-27 08:55:17</td>
+          <td><span class="catalyst-direction">从“唯低价”到“</span></td>
+          <td>2026-06-27 10:30:26</td>
           <td>东方财富7x24快讯</td>
           <td>财经快讯</td>
-          <td>【AI是“电老虎”？专家算账：全球电力需求增长中AI仅占约10%】专家认为，很公平地说，虽然AI算力的激增正在推高电力需求，但放眼整体能源需求，电动汽车、建筑供电、因气候变暖而增加的空调使用等诸多领域仍是电力需求增长的主力。“在全球电力需求增长的构成中，AI相关设施的能耗占比并不如公众预想般巨大，目</td>
+          <td>【从“唯低价”到“稳临床” 集采开始治“内卷”了】第12批国家组织药品集中带量采购工作近日启动，预计将于近期组织开标。数据显示，前11批国家组织药品集采已经覆盖了超过490个品种药品，而本次集采共筛选了65种药品。从去年的第11批集采开始，国家医保局就提出了“稳临床、保质量、防围标、反内卷”的原则，</td>
           <td>待盘面验证</td>
         </tr>
         
         <tr>
-          <td><span class="catalyst-direction">不等“毕了业再抢</span></td>
-          <td>2026-06-27 08:51:32</td>
+          <td><span class="catalyst-direction">中国卫星通信进入</span></td>
+          <td>2026-06-27 10:22:24</td>
           <td>东方财富7x24快讯</td>
           <td>财经快讯</td>
-          <td>【不等“毕了业再抢”：光谷豪掷80万元年薪 提前“预定”300名热门专业博士】“刷到信息就过来了，没想到真碰到意向岗位。”6月26日，在武汉光谷“AI光博计划”启动现场，一位从北京专程赶来的在读博士生难掩兴奋之情。这场博士对接会，光谷直接集结30家企业、释放200多个研发岗，最高年薪高达80万元。但</td>
+          <td>【中国卫星通信进入视频时代 终端赛道释放规模化信号】当前，国内卫星通信产业正完成从基建建设期向应用落地期的切换，低轨星座密集组网、核心元器件国产化持续推进，叠加多元行业场景需求集中释放，长期依赖定制项目、小批量交付的卫星终端赛道，正迎来量产普及、渠道下沉的结构性窗口。</td>
           <td>待盘面验证</td>
         </tr>
         
         <tr>
-          <td><span class="catalyst-direction">上海航运交易所：</span></td>
-          <td>2026-06-27 08:49:54</td>
+          <td><span class="catalyst-direction">北京收金340亿</span></td>
+          <td>2026-06-27 10:14:18</td>
           <td>东方财富7x24快讯</td>
           <td>财经快讯</td>
-          <td>【上海航运交易所：本周运输市场继续向好 多数航线运价上行】据上海航运交易所，本周，中国出口集装箱运输市场行情继续稳中向好，多数航线市场运价保持涨势，带动综合指数上涨。6月26日，上海出口集装箱综合运价指数为3239.64点，较上期上涨3.8%。</td>
+          <td>【北京收金340亿、深圳现百亿“地王” 上半年土拍有何风向？】2026年上半年，“缩量提质”成为一线城市住宅用地供应的主基调。成交分化异常明显，优质核心地块一经推出，动辄上百轮竞价；而远郊地块则频繁底价成交。</td>
           <td>待盘面验证</td>
         </tr>
         
         <tr>
-          <td><span class="catalyst-direction">直击新希望年度股</span></td>
-          <td>2026-06-27 08:49:16</td>
+          <td><span class="catalyst-direction">爱旭股份与多家合</span></td>
+          <td>2026-06-27 10:11:47</td>
           <td>东方财富7x24快讯</td>
           <td>财经快讯</td>
-          <td>【直击新希望年度股东会：管理层直面“被剔除沪深300”等问题 要靠经营成绩重回成分股】6月26日下午2时，新希望六和股份有限公司年度股东会在成都召开。财务数据方面，公司2025年饲料总销量2974万吨，同比增长15%；生猪养殖运营产线平均成本已降至12元/公斤以内，管理层提出争取进一步降至11元/公</td>
+          <td>【爱旭股份与多家合作伙伴签署多项合作协议】6月23日，2026年欧洲国际太阳能展（IntersolarEurope2026）在德国慕尼黑新国际博览中心开幕。展会现场，爱旭股份与来自瑞士、荷兰、法国、比利时以及波黑的多家安装商与渠道商签署了高效ABC组件供货协议，签约规模超过1GW，覆盖集中式、分布式</td>
           <td>待盘面验证</td>
         </tr>
         
       </tbody>
     </table>
+    </div>
   </div>
 
   <!-- ===== 前排/中军/后排 ===== -->
@@ -757,6 +821,7 @@ function goToDate(file) {
       <!-- 舆情监测 -->
       <div>
         <div class="section-title">舆情监测</div>
+        <div class="table-wrap">
         <table>
           <thead>
             <tr><th>来源</th><th>方向</th><th>热度</th><th>关键事件</th><th>盘前/盘后</th><th>操作建议</th></tr>
@@ -801,10 +866,12 @@ function goToDate(file) {
             
           </tbody>
         </table>
+        </div>
       </div>
       <!-- 持仓影响 -->
       <div>
         <div class="section-title">持仓影响</div>
+        <div class="table-wrap">
         <table>
           <thead>
             <tr><th>持仓</th><th>收盘涨跌</th><th>主力净量</th><th>定位</th><th>明日走势</th></tr>
@@ -829,6 +896,7 @@ function goToDate(file) {
             
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   </div>

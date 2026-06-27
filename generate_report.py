@@ -990,15 +990,75 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: #f1f3f4; }
   ::-webkit-scrollbar-thumb { background: #c8cacc; border-radius: 3px; }
+
+  /* ── 全局响应式基础 ── */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-wrap table { min-width: 500px; }
+
+  /* ── 大屏（≥1024px）：5列指数 ── */
+  @media (min-width: 1024px) {
+    .index-grid { grid-template-columns: repeat(5, 1fr); }
+  }
+
+  /* ── 中屏（600~900px）：3列指数，2列布局变1列 ── */
   @media (max-width: 900px) {
     .index-grid { grid-template-columns: repeat(3, 1fr); }
     .two-col, .two-col-sentiment, .anchor-grid { grid-template-columns: 1fr; }
     .tier-grid { grid-template-columns: 1fr; }
   }
+
+  /* ── 手机（≤600px）：2列指数，全面紧凑 ── */
   @media (max-width: 600px) {
-    .index-grid { grid-template-columns: repeat(2, 1fr); }
-    .main-wrap { padding: 0 12px 24px; }
-    .focus-notice { margin: 10px 12px; }
+    body { font-size: 12px; line-height: 1.5; }
+    .index-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+    .index-card { padding: 8px 10px; }
+    .index-card .idx-val { font-size: 16px; }
+    .index-card .idx-chg { font-size: 12px; }
+    .index-card .idx-meta { font-size: 10px; }
+    .index-card .idx-note { font-size: 10px; margin-top: 4px; padding-top: 4px; }
+
+    .page-header { padding: 10px 14px 8px; }
+    .page-header h1 { font-size: 16px; letter-spacing: 0; }
+    .page-header .meta { font-size: 10px; }
+    .page-header .meta span { margin-right: 6px; }
+    .page-header .date-nav { margin-top: 6px; }
+
+    .focus-notice { margin: 8px 10px; padding: 8px 10px; font-size: 12px; }
+    .main-wrap { padding: 0 10px 20px; }
+    .section { margin-top: 12px; }
+    .section-title { font-size: 13px; margin-bottom: 6px; }
+
+    thead th { font-size: 10px; padding: 6px 6px; }
+    tbody td { font-size: 11.5px; padding: 6px 6px; }
+
+    .tier-header { padding: 6px 10px; font-size: 12px; }
+    .tier-body { padding: 8px 10px; }
+    .tier-name { font-size: 11.5px; }
+    .tier-stocks { font-size: 10px; }
+    .tier-chg { font-size: 12px; }
+
+    .rank-num { width: 18px; height: 18px; font-size: 10px; }
+    .catalyst-direction { font-size: 10px; padding: 2px 4px; }
+
+    .anchor-dir { font-size: 11px; min-width: 50px; }
+    .anchor-cond { font-size: 11px; }
+    .anchor-stocks { font-size: 10px; }
+    .anchor-row { padding: 6px 10px; }
+
+    .dragon-box { padding: 8px 10px; font-size: 11.5px; }
+    .source-box { padding: 8px 10px; font-size: 10.5px; }
+    .status-tag { font-size: 10px; }
+
+    /* 手机端日期选择器更友好 */
+    .date-nav select { font-size: 12px; padding: 4px 6px; }
+    .date-nav label { font-size: 10px; }
+  }
+
+  /* ── 极窄屏（≤380px）：指数变1列，完全紧凑 ── */
+  @media (max-width: 380px) {
+    .index-grid { grid-template-columns: 1fr 1fr; }
+    .page-header h1 { font-size: 14px; }
+    .table-wrap table { min-width: 320px; }
   }
 </style>
 </head>
@@ -1056,7 +1116,7 @@ function goToDate(file) {
     <div class="section-title">行业主力净流向</div>
     <div class="two-col">
       <!-- 净流入 -->
-      <div>
+      <div class="table-wrap">
         <table>
           <thead>
             <tr><th>行业（净流入）</th><th>涨幅</th><th>主力净流入</th><th>意义</th></tr>
@@ -1074,7 +1134,7 @@ function goToDate(file) {
         </table>
       </div>
       <!-- 净流出 -->
-      <div>
+      <div class="table-wrap">
         <table>
           <thead>
             <tr><th>行业（净流出）</th><th>涨幅</th><th>主力净流出</th><th>意义</th></tr>
@@ -1097,6 +1157,7 @@ function goToDate(file) {
   <!-- ===== 概念与主线排序 ===== -->
   <div class="section">
     <div class="section-title">概念与主线排序</div>
+    <div class="table-wrap">
     <table>
       <thead>
         <tr><th>排名</th><th>主线</th><th>涨幅/资金</th><th>核心股</th><th>状态</th><th>明日走势</th></tr>
@@ -1117,11 +1178,13 @@ function goToDate(file) {
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 
   <!-- ===== 关键催化 ===== -->
   <div class="section">
     <div class="section-title">关键催化：时间与来源</div>
+    <div class="table-wrap">
     <table>
       <thead>
         <tr><th>方向</th><th>时间</th><th>来源</th><th>证据媒体</th><th>内容</th><th>效果验证</th></tr>
@@ -1139,6 +1202,7 @@ function goToDate(file) {
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </div>
 
   <!-- ===== 前排/中军/后排 ===== -->
@@ -1199,6 +1263,7 @@ function goToDate(file) {
       <!-- 舆情监测 -->
       <div>
         <div class="section-title">舆情监测</div>
+        <div class="table-wrap">
         <table>
           <thead>
             <tr><th>来源</th><th>方向</th><th>热度</th><th>关键事件</th><th>盘前/盘后</th><th>操作建议</th></tr>
@@ -1216,10 +1281,12 @@ function goToDate(file) {
             {% endfor %}
           </tbody>
         </table>
+        </div>
       </div>
       <!-- 持仓影响 -->
       <div>
         <div class="section-title">持仓影响</div>
+        <div class="table-wrap">
         <table>
           <thead>
             <tr><th>持仓</th><th>收盘涨跌</th><th>主力净量</th><th>定位</th><th>明日走势</th></tr>
@@ -1236,6 +1303,7 @@ function goToDate(file) {
             {% endfor %}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   </div>
