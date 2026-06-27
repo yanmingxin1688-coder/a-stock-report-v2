@@ -351,18 +351,22 @@ def fetch_real_data():
             is_up = change_pct_val >= 0
             change_pct = f"+{change_pct_val:.2f}%" if is_up else f"{change_pct_val:.2f}%"
             amount_wan = float(vals[37]) if vals[37] else 0
-            # 成交额格式化（A股惯例用成交额）
+            # 成交额格式化（vals[37]单位=万，1万=10000元）
+            # 万 → 亿：除10000；万 → 万亿：除100000000
             if amount_wan >= 100000000:
-                vol_str = f"成交额 {amount_wan/10000:.2f}万亿"
+                vol_str = f"成交额 {amount_wan/100000000:.2f}万亿"
             elif amount_wan >= 10000:
                 vol_str = f"成交额 {amount_wan/10000:.0f}亿"
             else:
                 vol_str = f"成交额 {amount_wan:.0f}万"
-            vol_yi = amount_wan / 10000  # 万 → 亿
             amplitude = float(vals[43]) if vals[43] else 0
-            up_count = int(float(vals[48])) if vals[48] else 0
-            down_count = int(float(vals[49])) if vals[49] else 0
-            note = f"振幅{amplitude:.1f}% | 涨{up_count}/跌{down_count}"
+            # 涨跌家数：vals[48]/[49] 非交易日可能返回 -1 或异常浮点值
+            up_count = int(float(vals[48])) if vals[48] and float(vals[48]) >= 0 else 0
+            down_count = int(float(vals[49])) if vals[49] and float(vals[49]) >= 0 else 0
+            if up_count == 0 and down_count == 0:
+                note = f"振幅{amplitude:.1f}%"
+            else:
+                note = f"振幅{amplitude:.1f}% | 涨{up_count}/跌{down_count}"
             indices.append({
                 "name": name, "value": f"{float(price):.2f}",
                 "change_pct": change_pct, "is_up": is_up,
@@ -388,7 +392,7 @@ def fetch_real_data():
                 "pn": "1", "pz": "90", "po": "1", "np": "1",
                 "fltt": "2", "invt": "2",
                 "fs": "m:90+t:2",
-                "fields": "f2,f3,f4,f12,f13,f14,f104,f105,f128,f136,f140,f141,f207",
+                "fields": "f2,f3,f4,f6,f12,f13,f14,f62,f104,f105,f128,f136,f140,f141,f207",
             }
             d = _curl_json(url, params=params, headers={"User-Agent": UA, "Referer": "https://www.eastmoney.com/"}, timeout=15)
             items = d.get("data", {}).get("diff", [])
@@ -398,6 +402,8 @@ def fetch_real_data():
             rows = []
             for item in items:
                 change_pct = float(item.get("f3", 0) or 0)
+                net_flow_yuan = float(item.get("f62", 0) or 0)  # 主力净流入（元）
+                amount_yuan = float(item.get("f6", 0) or 0)  # 成交额（元）
                 name = item.get("f14", "")
                 up_count = int(item.get("f104", 0) or 0)
                 down_count = int(item.get("f105", 0) or 0)
@@ -406,26 +412,32 @@ def fetch_real_data():
                     "name": name,
                     "change_pct": f"+{change_pct:.2f}%" if change_pct >= 0 else f"{change_pct:.2f}%",
                     "change_pct_raw": change_pct,
+                    "net_flow_yuan": net_flow_yuan,
+                    "amount_yuan": amount_yuan,
                     "up_count": up_count,
                     "down_count": down_count,
                     "leader": leader,
                 })
-            rows_sorted = sorted(rows, key=lambda x: x["change_pct_raw"], reverse=True)
+            rows_sorted = sorted(rows, key=lambda x: x["net_flow_yuan"], reverse=True)
             for r in rows_sorted[:8]:
                 meaning = f"涨{r['up_count']}跌{r['down_count']}，领涨{r['leader']}"
+                nf_yi = abs(r['net_flow_yuan']) / 1e8  # 元 → 亿
+                net_flow_str = f"+{nf_yi:.1f}亿" if r['net_flow_yuan'] >= 0 else f"-{nf_yi:.1f}亿"
                 inflow_sectors.append({
                     "name": r["name"],
                     "change_pct": r["change_pct"],
-                    "net_flow": f"+{abs(r['change_pct_raw']*10):.1f}亿(估)",
+                    "net_flow": net_flow_str,
                     "meaning": meaning,
                 })
                 sector_top5_names.append(r["name"])
             for r in rows_sorted[-7:]:
                 meaning = f"涨{r['up_count']}跌{r['down_count']}，资金流出"
+                nf_yi = abs(r['net_flow_yuan']) / 1e8  # 元 → 亿
+                net_flow_str = f"+{nf_yi:.1f}亿" if r['net_flow_yuan'] >= 0 else f"-{nf_yi:.1f}亿"
                 outflow_sectors.append({
                     "name": r["name"],
                     "change_pct": r["change_pct"],
-                    "net_flow": f"-{abs(r['change_pct_raw']*10):.1f}亿(估)",
+                    "net_flow": net_flow_str,
                     "meaning": meaning,
                 })
                 sector_bottom5_names.append(r["name"])
@@ -575,8 +587,18 @@ def fetch_real_data():
     # ── 数据组装 ──────────────────────────────────────
     print("  [6/6] 组装报告数据...")
 
-    today = datetime.now().strftime("%Y-%m-%d")
-    data_time = datetime.now().strftime("%Y/%m/%d 16:00") + " Asia/Shanghai"
+    # 计算最近交易日日期（周末回退到周五，确保报告日期与实际数据匹配）
+    from datetime import date, timedelta
+    now = datetime.now()
+    weekday = now.weekday()  # 0=周一, 5=周六, 6=周日
+    if weekday == 5:  # 周六 → 周五
+        trade_date = now - timedelta(days=1)
+    elif weekday == 6:  # 周日 → 周五
+        trade_date = now - timedelta(days=2)
+    else:
+        trade_date = now
+    today = trade_date.strftime("%Y-%m-%d")
+    data_time = trade_date.strftime("%Y/%m/%d") + " 16:00 Asia/Shanghai"
 
     # ── 焦点站位：基于涨幅最大行业 + 题材标签 ──
     top_sectors = sector_top5_names[:3] if sector_top5_names else ["(数据不足)"]
@@ -643,24 +665,45 @@ def fetch_real_data():
     if not catalysts:
         catalysts = build_mock_data()["catalysts"]
 
-    # ── 前排/中军/后排：基于强势股涨幅分层 ──
+    # ── 前排/中军/后排：基于板块排名 + 强势股分层 ──
     front_tier = []
     mid_tier = []
     rear_tier = []
+    # 前排 = 涨幅最高板块的领涨股 + 涨幅≥7%的强势股
     if hot_stocks:
-        # 涨幅>7% = 前排，3-7% = 中军，<3% = 后排
-        for s in hot_stocks[:6]:
+        top_stock = hot_stocks[0] if hot_stocks else None
+        # 涨幅≥7% → 前排龙头
+        for s in hot_stocks[:20]:
             chg = s["change_pct"]
-            chg_class = "up" if chg >= 3 else ("down" if chg < 0 else "")
-            chg_str = f"+{chg:.2f}%" if chg >= 0 else f"{chg:.2f}%"
-            section = s["reason"][:10] if s["reason"] else s["name"]
-            stocks_str = s["name"]
             if chg >= 7:
-                front_tier.append({"section": section, "stocks": stocks_str, "change": chg_str, "change_class": "up"})
-            elif chg >= 3:
-                mid_tier.append({"section": section, "stocks": stocks_str, "change": chg_str, "change_class": chg_class})
-            else:
-                rear_tier.append({"section": section, "stocks": stocks_str, "change": chg_str, "change_class": chg_class})
+                chg_str = f"+{chg:.2f}%" if chg >= 0 else f"{chg:.2f}%"
+                section = s["reason"][:10] if s["reason"] else s["name"]
+                front_tier.append({"section": section, "stocks": s["name"], "change": chg_str, "change_class": "up"})
+        # 3-7% → 中军
+        for s in hot_stocks[:20]:
+            chg = s["change_pct"]
+            if 3 <= chg < 7:
+                chg_class = "up" if chg >= 0 else "down"
+                chg_str = f"+{chg:.2f}%" if chg >= 0 else f"{chg:.2f}%"
+                section = s["reason"][:10] if s["reason"] else s["name"]
+                mid_tier.append({"section": section, "stocks": s["name"], "change": chg_str, "change_class": chg_class})
+        # 涨幅 <3% 的强势股 → 后排跟风
+        for s in hot_stocks[:20]:
+            chg = s["change_pct"]
+            if chg < 3:
+                chg_class = "up" if chg >= 0 else ("down" if chg < 0 else "")
+                chg_str = f"+{chg:.2f}%" if chg >= 0 else f"{chg:.2f}%"
+                section = s["reason"][:10] if s["reason"] else s["name"]
+                rear_tier.append({"section": section, "stocks": s["name"], "change": chg_str, "change_class": chg_class})
+    # 如果后排仍空，用涨幅较低的行业板块填充（涨幅排名4-6的行业，涨幅在+1~+3%之间的）
+    if not rear_tier and inflow_sectors:
+        for s in inflow_sectors[3:6]:  # 第4-6名行业
+            rear_tier.append({
+                "section": s["name"],
+                "stocks": s.get("meaning", "板块跟风上涨"),
+                "change": s["change_pct"],
+                "change_class": "up" if not s["change_pct"].startswith("-") else "down",
+            })
     # 确保每层至少有1条
     if not front_tier:
         front_tier = [{"section": "领涨龙头", "stocks": "(待补充)", "change": "--", "change_class": "up"}]
