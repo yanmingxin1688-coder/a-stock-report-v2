@@ -19,6 +19,11 @@
 - **日期选择器同步更新**：每次生成新报告时，`update_all_date_selectors()` 会：
   - 对已有 dateSelect 的文件 → 替换 `<select>` 选项，修正 selected 指向该文件自身日期
   - 对没有 dateSelect 的旧模板文件 → 注入完整日期导航栏 + goToDate 脚本
+- **移动端适配**：4级响应式断点（1024/900/600/380px）
+  - 指数卡片：5列→3列→2列→2列
+  - 表格：所有 `<table>` 加 `.table-wrap` 横向滚动容器（min-width:500px, -webkit-overflow-scrolling:touch）
+  - 两列布局：900px以下变单列
+  - 字体/间距：600px以下全面紧凑化
 
 ## 数据源架构（fetch_real_data）
 | 优先级 | 数据源 | 用途 | 状态 |
